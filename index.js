@@ -1,10 +1,14 @@
 import DiscordJS, { Intents } from 'discord.js'
 import dotenv from 'dotenv'
 import puppeteer from 'puppeteer';
+import fs from 'fs';
+import { channel } from 'diagnostics_channel';
 
-var rent;
-var electric;
-var gas;
+var rent = 'TBA';
+var electric = 'TBA';
+var gas = 'TBA';
+
+const months = ["February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December", "January"];
 
 dotenv.config()
 
@@ -51,24 +55,7 @@ async function scrapeHunter() {
 
     await browser.close();      //close browser
 
-    console.log('Hunter Star Bill is ready');
-        
-    client.on('messageCreate', (message) => 
-    {
-        if (message.content === '!hunter') 
-        {
-            message.reply(
-            {
-                content: 'rent is ' + rawTxt,
-            })
-        }
-    })
-
-    client.on('ready', () =>
-    {
-        const channel = client.channels.cache.get('966961832566882344');
-        channel.send("rent: " + rawTxt)
-    })
+    console.log('Rent Bill is Ready');
 }
 
 async function scrapeElectric()
@@ -96,18 +83,7 @@ async function scrapeElectric()
 
     await browser.close();
 
-    console.log('Electric Bill is ready');
-    
-    client.on('messageCreate', (message) => 
-    {
-        if (message.content === '!electric') 
-        {
-            message.reply(
-            {
-                content: 'electric is ' + rawTxt,
-            })
-        }
-    })
+    console.log('Electric Bill is Ready');
 }
 
 async function scrapeGas()
@@ -147,18 +123,7 @@ async function scrapeGas()
 
     await browser.close();
     
-    console.log('Gas Bill is ready');
-    
-    client.on('messageCreate', (message) => 
-    {
-        if (message.content === '!gas') 
-        {
-            message.reply(
-            {
-                //content: 'gas is ' + rawTxt,
-            })
-        }
-    })
+    console.log('Gas Bill is Ready');
 
     client.on('ready', () =>
     {
@@ -169,26 +134,94 @@ async function scrapeGas()
 
 client.on('ready', async () => 
 {
-    console.log('Bill Bot is Ready');
+    console.log('Bill Bot is Starting...');
+    const channel = client.channels.cache.get('966961832566882344');        //channel to send messages too
+    
+    let d = new Date();
+    let day = d.getDate();
+    let month = months[d.getMonth()];
+    if (day === 1)
+    {
+        channel.send('For ' + month + ' 1st');
+        channel.send('----------------------');
+        channel.send('Internet: $59.90');
+    }
     await scrapeElectric();
     await scrapeHunter();
     //await scrapeGas();
 
-    //print contents
-    const channel = client.channels.cache.get('966961832566882344');
-    channel.send("rent: " + rent);
-    channel.send("electric: " + electric);
-    channel.send("gas: " + gas);
+    //if balance of $0.00
+    if (electric === '$0.00')
+    {
+        electric = 'TBA';
+    }
+    if (gas === '$0.00')
+    {
+        gas = 'TBA';
+    }
+
+    const rentData = fs.readFileSync('billTxt/rent.txt', 'utf8');
+    const electricData = fs.readFileSync('billTxt/electric.txt', 'utf8');
+    const gasData = fs.readFileSync('billTxt/gas.txt', 'utf8');
+
+    //check if balance is identical to previous check, if not print
+    if (rentData != rent)
+    {
+        channel.send('rent: ' + rent);
+        fs.writeFileSync('billTxt/rent.txt', rent);
+        console.log('New Rent Balance');
+    }
+    if (electricData != electric)
+    {
+        channel.send('electric: ' + electric);
+        fs.writeFileSync('billTxt/electric.txt', electric);
+        console.log('New Electric Balance');
+    }
+    if (gasData != gas)
+    {
+        channel.send('gas: ' + gas);
+        fs.writeFileSync('billTxt/gas.txt', gas);
+        console.log('New Gas Balance');
+    }
+
+    console.log('Bill Bot is Finished!');
 })
 
 client.on('messageCreate', (message) => 
 {
+    const channel = client.channels.cache.get('966961832566882344');
     if (message.content === '!bills') 
     {
-        const channel = client.channels.cache.get('966961832566882344');
-        channel.send("rent: " + rent);
-        channel.send("electric: " + electric);
-        channel.send("gas: " + gas);
+        message.reply({
+            content: "internet: $59.90\nrent: " + rent + "\nelectric: " + electric + "\ngas: " + gas
+        })
+    }
+    if (message.content === '!internet')
+    {
+        message.reply({
+            content: 'Internet: $59.90'
+        })
+    }
+    if (message.content === '!gas') 
+    {
+        message.reply(
+        {
+            content: 'gas: ' + gas,
+        })
+    }
+    if (message.content === '!electric') 
+    {
+        message.reply(
+        {
+            content: 'electric: ' + electric,
+        })
+    }
+    if (message.content === '!rent') 
+    {
+        message.reply(
+        {
+            content: 'rent: ' + rent,
+        })
     }
 })
 
