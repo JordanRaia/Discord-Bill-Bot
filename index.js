@@ -2,6 +2,10 @@ import DiscordJS, { Intents } from 'discord.js'
 import dotenv from 'dotenv'
 import puppeteer from 'puppeteer';
 
+var rent;
+var electric;
+var gas;
+
 dotenv.config()
 
 function sleep(num) {
@@ -43,6 +47,8 @@ async function scrapeHunter() {
     const txt = await el.getProperty('textContent');
     const rawTxt = await txt.jsonValue();
 
+    rent = rawTxt;
+
     await browser.close();      //close browser
 
     console.log('Hunter Star Bill is ready');
@@ -56,6 +62,12 @@ async function scrapeHunter() {
                 content: 'rent is ' + rawTxt,
             })
         }
+    })
+
+    client.on('ready', () =>
+    {
+        const channel = client.channels.cache.get('966961832566882344');
+        channel.send("rent: " + rawTxt)
     })
 }
 
@@ -79,6 +91,8 @@ async function scrapeElectric()
     const [el] = await page.$x('/html/body/app-root/app-dashboard/main/article/section/div/div[2]/app-card-common[1]/section/div/div/app-bill-due/article/section/div[4]/div[1]/span');
     const txt = await el.getProperty('textContent');
     const rawTxt = await txt.jsonValue();
+
+    electric = rawTxt;
 
     await browser.close();
 
@@ -145,15 +159,37 @@ async function scrapeGas()
             })
         }
     })
+
+    client.on('ready', () =>
+    {
+        //const channel = client.channels.cache.get('966961832566882344');
+        //channel.send("gas: " + rawTxt);
+    })
 }
 
-scrapeElectric();
-scrapeHunter();
-scrapeGas();
-
-client.on('ready', () => 
+client.on('ready', async () => 
 {
-    console.log('Bill Bot is Ready')
+    console.log('Bill Bot is Ready');
+    await scrapeElectric();
+    await scrapeHunter();
+    //await scrapeGas();
+
+    //print contents
+    const channel = client.channels.cache.get('966961832566882344');
+    channel.send("rent: " + rent);
+    channel.send("electric: " + electric);
+    channel.send("gas: " + gas);
+})
+
+client.on('messageCreate', (message) => 
+{
+    if (message.content === '!bills') 
+    {
+        const channel = client.channels.cache.get('966961832566882344');
+        channel.send("rent: " + rent);
+        channel.send("electric: " + electric);
+        channel.send("gas: " + gas);
+    }
 })
 
 client.login(process.env.TOKEN);
