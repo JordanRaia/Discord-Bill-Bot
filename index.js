@@ -88,22 +88,20 @@ async function scrapeElectric()
 
 async function scrapeGas()
 {
-    const browser = await puppeteer.launch({headless: false});
+    const browser = await puppeteer.launch({headless: true});
     const page = await browser.newPage();
     await page.goto('https://customerportal.southerncompany.com/User/Login?LDC=7');       //go to url
 
     // Login
-    //sleep(3000);        //wait 3 seconds
+    sleep(3000);        //wait 3 seconds
     await page.waitForSelector("#username");      //wait for username to be selectable
     await page.type('#username', process.env.NICORUSER);   //type username
     await page.type('#inputPassword', process.env.NICORPASS);     //type password
     await page.click('#loginbtn');          //click sign in
 
-    sleep(10000);
-
     try
     {
-        //something
+        await page.waitForXPath('//*[@id="container"]/div[2]/div[2]/form/div[4]/div/div[1]/div/div[5]');
     }
     catch 
     {
@@ -115,27 +113,21 @@ async function scrapeGas()
     // Get cookies
     const cookies = await page.cookies();
 
+    const [el] = await page.$x('//*[@id="container"]/div[2]/div[2]/form/div[4]/div/div[1]/div/div[5]');
+    const txt = await el.getProperty('textContent');
+    const rawTxt = await txt.jsonValue();  //https://c.mobills.net/r/gskFxn
 
-    //await page.waitForXPath('//*[@id="yDmH0d"]/c-wiz/div/div/div/div[2]/div/div[3]/div[2]');
-    //const [el] = await page.$x('//*[@id="yDmH0d"]/c-wiz/div/div/div/div[2]/div/div[3]/div[2]');
-    //const txt = await el.getProperty('textContent');
-    //const rawTxt = await txt.jsonValue();  //https://c.mobills.net/r/gskFxn
+    gas = rawTxt;
 
     await browser.close();
     
     console.log('Gas Bill is Ready');
-
-    client.on('ready', () =>
-    {
-        //const channel = client.channels.cache.get('966961832566882344');
-        //channel.send("gas: " + rawTxt);
-    })
 }
 
 client.on('ready', async () => 
 {
     console.log('Bill Bot is Starting...');
-    const channel = client.channels.cache.get('966961832566882344');        //channel to send messages too
+    const channel = client.channels.cache.get('808532247425712157');        //channel to send messages too
     
     let d = new Date();
     let day = d.getDate();
@@ -148,7 +140,7 @@ client.on('ready', async () =>
     }
     await scrapeElectric();
     await scrapeHunter();
-    //await scrapeGas();
+    await scrapeGas();
 
     //if balance of $0.00
     if (electric === '$0.00')
@@ -189,7 +181,6 @@ client.on('ready', async () =>
 
 client.on('messageCreate', (message) => 
 {
-    const channel = client.channels.cache.get('966961832566882344');
     if (message.content === '!bills') 
     {
         message.reply({
