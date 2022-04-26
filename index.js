@@ -252,7 +252,7 @@ client.on('messageCreate', async (message) =>
         await scrapeGas();
         checkZero();
         message.reply({
-            content: "internet: $59.90\nrent: " + rent + "\nelectric: " + electric + "\ngas: " + gas
+            content: "internet: $59.90\nrent: " + rent + "\nelectric: " + electric + "\ngas: " + gas + "\nwater: " + water
         })
     }
     if (message.content === '!internet')
