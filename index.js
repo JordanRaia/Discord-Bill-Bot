@@ -7,6 +7,7 @@ import { channel } from 'diagnostics_channel';
 var rent = 'TBA';
 var electric = 'TBA';
 var gas = 'TBA';
+var water = 'TBA';
 
 const months = ["February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December", "January"];
 
@@ -44,18 +45,49 @@ async function scrapeHunter() {
 
     // Get cookies
     const cookies = await page.cookies();
-  
-    const xpath = "/html/body/div[1]/div/section/div/div/div/div[3]/div/div/div/div[1]/form/div[2]/div/div[1]/div/div/div[1]/div[1]/h2/b";
-    await page.waitForXPath(xpath);
-    const [el] = await page.$x(xpath);
-    const txt = await el.getProperty('textContent');
-    const rawTxt = await txt.jsonValue();
 
-    rent = rawTxt;
+    var rentCase = true;
+    var waterCase = true;
+
+    try     //try get rent
+    {
+        await page.waitForXPath('/html/body/div[1]/div/section/div/div/div/div[3]/div/div/div/div[1]/form/div[2]/div/div[1]/div/div/div[1]/div[2]/table/tbody/tr[1]/td[2]/span')
+    }
+    catch
+    {
+        console.log('Rent Bill failed to load');
+        rentCase = false;
+    }
+
+    if (rentCase)       //if there's a rent bill
+    {
+        const [rel] = await page.$x('/html/body/div[1]/div/section/div/div/div/div[3]/div/div/div/div[1]/form/div[2]/div/div[1]/div/div/div[1]/div[2]/table/tbody/tr[1]/td[2]/span');
+        const txt = await rel.getProperty('textContent');
+        const rentTxt = await txt.jsonValue();
+        rent = rentTxt;
+    }
+
+    try     //try to get water
+    {
+        await page.waitForXPath('/html/body/div[1]/div/section/div/div/div/div[3]/div/div/div/div[1]/form/div[2]/div/div[1]/div/div/div[1]/div[2]/table/tbody/tr[2]/td[2]/span')
+    }
+    catch
+    {
+        console.log('Water Bill failed to load');
+        waterCase = false;
+    }
+
+    if (waterCase)      //if there's a water bill
+    {
+        const [wel] = await page.$x('/html/body/div[1]/div/section/div/div/div/div[3]/div/div/div/div[1]/form/div[2]/div/div[1]/div/div/div[1]/div[2]/table/tbody/tr[2]/td[2]/span');
+        const txt = await wel.getProperty('textContent');
+        const waterTxt = await txt.jsonValue();
+        water = waterTxt;
+    }
 
     await browser.close();      //close browser
 
-    console.log('Rent Bill is Ready');
+    console.log('Hunter Star Bills are Ready');
 }
 
 async function scrapeElectric()
@@ -115,13 +147,33 @@ async function scrapeGas()
 
     const [el] = await page.$x('//*[@id="container"]/div[2]/div[2]/form/div[4]/div/div[1]/div/div[5]');
     const txt = await el.getProperty('textContent');
-    const rawTxt = await txt.jsonValue();  //https://c.mobills.net/r/gskFxn
+    const rawTxt = await txt.jsonValue();
 
     gas = rawTxt;
 
     await browser.close();
     
     console.log('Gas Bill is Ready');
+}
+
+function checkZero()
+{
+    if (electric === '$0.00')
+    {
+        electric = 'TBA';
+    }
+    if (gas === '$0.00')
+    {
+        gas = 'TBA';
+    }
+    if (rent === '$0.00')
+    {
+        rent = 'TBA';
+    }
+    if (water === '$0.00')
+    {
+        water = 'TBA';
+    }
 }
 
 client.on('ready', async () => 
@@ -143,48 +195,64 @@ client.on('ready', async () =>
     await scrapeGas();
 
     //if balance of $0.00
-    if (electric === '$0.00')
-    {
-        electric = 'TBA';
-    }
-    if (gas === '$0.00')
-    {
-        gas = 'TBA';
-    }
+    checkZero();
 
     const rentData = fs.readFileSync('billTxt/rent.txt', 'utf8');
     const electricData = fs.readFileSync('billTxt/electric.txt', 'utf8');
     const gasData = fs.readFileSync('billTxt/gas.txt', 'utf8');
+    const waterData = fs.readFileSync('billTxt/water.txt', 'utf8');
 
     //check if balance is identical to previous check, if not print
     if (rentData != rent)
     {
-        channel.send('rent: ' + rent);
+        if(rent != 'TBA')
+        {
+            channel.send('rent: ' + rent);
+        }
         fs.writeFileSync('billTxt/rent.txt', rent);
         console.log('New Rent Balance');
     }
     if (electricData != electric)
     {
-        channel.send('electric: ' + electric);
+        if(electric != 'TBA')
+        {
+            channel.send('electric: ' + electric);
+        }
         fs.writeFileSync('billTxt/electric.txt', electric);
         console.log('New Electric Balance');
     }
     if (gasData != gas)
     {
-        channel.send('gas: ' + gas);
+        if(gas != 'TBA')
+        {
+            channel.send('gas: ' + gas);
+        }
         fs.writeFileSync('billTxt/gas.txt', gas);
         console.log('New Gas Balance');
+    }
+    if (waterData != water)
+    {
+        if (water != 'TBA')
+        {
+            channel.send('water: ' + water);
+        }
+        fs.writeFileSync('billTxt/water.txt', water);
+        console.log('New Water Balance');
     }
 
     console.log('Bill Bot is Finished!');
 })
 
-client.on('messageCreate', (message) => 
+client.on('messageCreate', async (message) => 
 {
     if (message.content === '!bills') 
     {
+        await scrapeElectric();
+        await scrapeHunter();
+        await scrapeGas();
+        checkZero();
         message.reply({
-            content: "internet: $59.90\nrent: " + rent + "\nelectric: " + electric + "\ngas: " + gas
+            content: "internet: $59.90\nrent: " + rent + "\nelectric: " + electric + "\ngas: " + gas + "\nwater: " + water
         })
     }
     if (message.content === '!internet')
@@ -195,6 +263,8 @@ client.on('messageCreate', (message) =>
     }
     if (message.content === '!gas') 
     {
+        await scrapeGas();
+        checkZero();
         message.reply(
         {
             content: 'gas: ' + gas,
@@ -202,6 +272,8 @@ client.on('messageCreate', (message) =>
     }
     if (message.content === '!electric') 
     {
+        await scrapeElectric();
+        checkZero();
         message.reply(
         {
             content: 'electric: ' + electric,
@@ -209,9 +281,20 @@ client.on('messageCreate', (message) =>
     }
     if (message.content === '!rent') 
     {
+        await scrapeHunter();
+        checkZero();
         message.reply(
         {
             content: 'rent: ' + rent,
+        })
+    }
+    if (message.content === '!water') 
+    {
+        await scrapeHunter();
+        checkZero();
+        message.reply(
+        {
+            content: 'water: ' + water,
         })
     }
 })
