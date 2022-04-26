@@ -184,7 +184,7 @@ client.on('ready', async () =>
     let d = new Date();
     let day = d.getDate();
     let month = months[d.getMonth()];
-    if (day === 26)
+    if (day === 1)
     {
         channel.send('For ' + month + ' 1st');
         channel.send('----------------------');
