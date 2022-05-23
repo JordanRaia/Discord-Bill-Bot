@@ -1,8 +1,8 @@
 import DiscordJS, { Intents } from 'discord.js'
 import dotenv from 'dotenv'
+import schedule from 'node-schedule'
 import puppeteer from 'puppeteer';
 import fs from 'fs';
-import { channel } from 'diagnostics_channel';
 
 var rent = 'TBA';
 var electric = 'TBA';
@@ -32,7 +32,7 @@ const client = new DiscordJS.Client(
 })
 
 async function scrapeHunter() {
-    const browser = await puppeteer.launch({headless: true});
+    const browser = await puppeteer.launch({headerless: true});
     const page = await browser.newPage();
     
     await page.goto("https://hunterstarproperties.securecafe.com/residentservices/hunter-star-properties/userlogin.aspx");
@@ -87,12 +87,12 @@ async function scrapeHunter() {
 
     await browser.close();      //close browser
 
-    console.log('Hunter Star Bills are Ready');
+    console.log('Hunter Star Bills are Ready', rent, water);
 }
 
 async function scrapeElectric()
 {
-    const browser = await puppeteer.launch({headless: true});
+    const browser = await puppeteer.launch({headerless: true});
     const page = await browser.newPage();
     await page.goto('https://www.comed.com/login');       //go to url
 
@@ -106,8 +106,27 @@ async function scrapeElectric()
     // Get cookies
     const cookies = await page.cookies();
 
-    await page.waitForXPath('/html/body/app-root/app-dashboard/main/article/section/div/div[2]/app-card-common[1]/section/div/div/app-bill-due/article/section/div[4]/div[1]/span');
-    const [el] = await page.$x('/html/body/app-root/app-dashboard/main/article/section/div/div[2]/app-card-common[1]/section/div/div/app-bill-due/article/section/div[4]/div[1]/span');
+    var xpath = '/html/body/app-root/app-dashboard/main/article/section/div/div[2]/app-card-common[1]/section/div/div/app-bill-due/article/section/div[3]/div[1]/span';
+
+    try 
+    {
+        await page.waitForXPath(xpath);
+    }
+    catch
+    {
+        xpath = '/html/body/app-root/app-dashboard/main/article/section/div/div[2]/app-card-common[1]/section/div/div/app-bill-due/article/section/div[4]/div[1]/span';
+        try{
+            await page.waitForXPath(xpath);
+        }
+        catch
+        {
+            await browser.close();
+            console.log('Electric Bill failed to load');
+            return;
+        }
+    }
+
+    const [el] = await page.$x(xpath);
     const txt = await el.getProperty('textContent');
     const rawTxt = await txt.jsonValue();
 
@@ -115,12 +134,12 @@ async function scrapeElectric()
 
     await browser.close();
 
-    console.log('Electric Bill is Ready');
+    console.log('Electric Bill is Ready', electric);
 }
 
 async function scrapeGas()
 {
-    const browser = await puppeteer.launch({headless: true});
+    const browser = await puppeteer.launch({headerless: true});
     const page = await browser.newPage();
     await page.goto('https://customerportal.southerncompany.com/User/Login?LDC=7');       //go to url
 
@@ -153,7 +172,7 @@ async function scrapeGas()
 
     await browser.close();
     
-    console.log('Gas Bill is Ready');
+    console.log('Gas Bill is Ready', gas);
 }
 
 function checkZero()
@@ -178,79 +197,80 @@ function checkZero()
 
 client.on('ready', async () => 
 {
-    console.log('Bill Bot is Starting...');
-    const channel = client.channels.cache.get('808532247425712157');        //channel to send messages too
-    
-    let d = new Date();
-    let day = d.getDate();
-    let month = months[d.getMonth()];
-    if (day === 1)
-    {
-        channel.send('For ' + month + ' 1st');
-        channel.send('----------------------');
-        channel.send('Internet: $59.90');
-    }
-    await scrapeElectric();
-    await scrapeHunter();
-    await scrapeGas();
+    schedule.scheduleJob('0 0 * * *', async () => {
+        var today = new Date();
+        var date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
 
-    //if balance of $0.00
-    checkZero();
+        console.log('Bill Bot is Starting...', date);
+        const channel = client.channels.cache.get('808532247425712157');        //channel to send messages too
+        
+        let d = new Date();
+        let day = d.getDate();
+        let month = months[d.getMonth()];
+        if (day === 2)
+        {
+            channel.send('For ' + month + ' 1st');
+            channel.send('----------------------');
+            channel.send('Internet: $59.90');
+        }
+        await scrapeElectric();
+        await scrapeHunter();
+        await scrapeGas();
 
-    const rentData = fs.readFileSync('billTxt/rent.txt', 'utf8');
-    const electricData = fs.readFileSync('billTxt/electric.txt', 'utf8');
-    const gasData = fs.readFileSync('billTxt/gas.txt', 'utf8');
-    const waterData = fs.readFileSync('billTxt/water.txt', 'utf8');
+        //if balance of $0.00
+        checkZero();
 
-    //check if balance is identical to previous check, if not print
-    if (rentData != rent)
-    {
-        if(rent != 'TBA')
-        {
-            channel.send('rent: ' + rent);
-        }
-        fs.writeFileSync('billTxt/rent.txt', rent);
-        console.log('New Rent Balance');
-    }
-    if (electricData != electric)
-    {
-        if(electric != 'TBA')
-        {
-            channel.send('electric: ' + electric);
-        }
-        fs.writeFileSync('billTxt/electric.txt', electric);
-        console.log('New Electric Balance');
-    }
-    if (gasData != gas)
-    {
-        if(gas != 'TBA')
-        {
-            channel.send('gas: ' + gas);
-        }
-        fs.writeFileSync('billTxt/gas.txt', gas);
-        console.log('New Gas Balance');
-    }
-    if (waterData != water)
-    {
-        if (water != 'TBA')
-        {
-            channel.send('water: ' + water);
-        }
-        fs.writeFileSync('billTxt/water.txt', water);
-        console.log('New Water Balance');
-    }
+        const rentData = fs.readFileSync('billTxt/rent.txt', 'utf8');
+        const electricData = fs.readFileSync('billTxt/electric.txt', 'utf8');
+        const gasData = fs.readFileSync('billTxt/gas.txt', 'utf8');
+        const waterData = fs.readFileSync('billTxt/water.txt', 'utf8');
 
-    console.log('Bill Bot is Finished!');
+        //check if balance is identical to previous check, if not print
+        if (rentData != rent)
+        {
+            if(rent != 'TBA')
+            {
+                channel.send('rent: $353.34');
+            }
+            fs.writeFileSync('billTxt/rent.txt', rent);
+            console.log('New Rent Balance');
+        }
+        if (electricData != electric)
+        {
+            if(electric != 'TBA')
+            {
+                channel.send('electric: ' + electric);
+            }
+            fs.writeFileSync('billTxt/electric.txt', electric);
+            console.log('New Electric Balance');
+        }
+        if (gasData != gas)
+        {
+            if(gas != 'TBA')
+            {
+                channel.send('gas: ' + gas);
+            }
+            fs.writeFileSync('billTxt/gas.txt', gas);
+            console.log('New Gas Balance');
+        }
+        if (waterData != water)
+        {
+            if (water != 'TBA')
+            {
+                channel.send('water: ' + water);
+            }
+            fs.writeFileSync('billTxt/water.txt', water);
+            console.log('New Water Balance');
+        }
+
+        console.log('Bill Bot is Finished!');
+    });
 })
 
 client.on('messageCreate', async (message) => 
 {
     if (message.content === '!bills') 
     {
-        await scrapeElectric();
-        await scrapeHunter();
-        await scrapeGas();
-        checkZero();
         message.reply({
             content: "internet: $59.90\nrent: " + rent + "\nelectric: " + electric + "\ngas: " + gas + "\nwater: " + water
         })
@@ -263,8 +283,6 @@ client.on('messageCreate', async (message) =>
     }
     if (message.content === '!gas') 
     {
-        await scrapeGas();
-        checkZero();
         message.reply(
         {
             content: 'gas: ' + gas,
@@ -272,8 +290,6 @@ client.on('messageCreate', async (message) =>
     }
     if (message.content === '!electric') 
     {
-        await scrapeElectric();
-        checkZero();
         message.reply(
         {
             content: 'electric: ' + electric,
@@ -281,8 +297,6 @@ client.on('messageCreate', async (message) =>
     }
     if (message.content === '!rent') 
     {
-        await scrapeHunter();
-        checkZero();
         message.reply(
         {
             content: 'rent: ' + rent,
@@ -290,8 +304,6 @@ client.on('messageCreate', async (message) =>
     }
     if (message.content === '!water') 
     {
-        await scrapeHunter();
-        checkZero();
         message.reply(
         {
             content: 'water: ' + water,
