@@ -4,10 +4,10 @@ import schedule from 'node-schedule'
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 
-var rent = 'TBA';
-var electric = 'TBA';
-var gas = 'TBA';
-var water = 'TBA';
+var rent = fs.readFileSync('billTxt/rent.txt', 'utf8');
+var electric = fs.readFileSync('billTxt/electric.txt', 'utf8');
+var gas = fs.readFileSync('billTxt/gas.txt', 'utf8');
+var water = fs.readFileSync('billTxt/water.txt', 'utf8');
 
 const months = ["February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December", "January"];
 
